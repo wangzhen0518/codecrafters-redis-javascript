@@ -12,10 +12,21 @@ function encodeStatusResponse(stateResponse) {
     let encodedString = `+${stateResponse}\r\n`;
     return encodedString;
 }
+
 function encodeStringResponse(stringResponse) {
-    let cnt = stringResponse.length > 0 ? stringResponse.length : -1;
-    let encodedString = `\$${cnt}\r\n${stringResponse}\r\n`;
+    let encodedString;
+    if (stringResponse.length > 0) {
+        encodedString = `\$${stringResponse.length}\r\n${stringResponse}\r\n`;
+    } else {
+        encodedString = "$-1\r\n";
+    }
     return encodedString;
+}
+
+function setKeyExpire(key, time) {
+    setTimeout(() => {
+        database.delete(key);
+    }, time);
 }
 
 const database = new Map();
@@ -44,8 +55,13 @@ const server = net.createServer(connection => {
                 break;
             }
             case "set": {
-                let [key, value] = commandList.slice(1, 3);
+                let key = commandList[1];
+                let value = commandList[2];
                 database.set(key, value);
+                if (commandList.length >= 5 && commandList[3].toLowerCase() === "px") {
+                    let timeout = Number.parseInt(commandList[4]);
+                    setKeyExpire(key, timeout);
+                }
                 let resp = encodeStatusResponse("OK");
                 connection.write(resp);
                 break;
